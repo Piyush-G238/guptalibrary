@@ -12,6 +12,7 @@ func GroupPublisherRoutes(router *gin.RouterGroup) {
 
 	router.POST("/", CreatePublisher)
 	router.PATCH("/:id", UpdatePublisher)
+	router.GET("/", GetPublishers)
 }
 
 func CreatePublisher(ctx *gin.Context) {
@@ -47,4 +48,9 @@ func UpdatePublisher(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(200, gin.H{"id": generatedId, "message": "Publisher updated successfully!"})
+}
+
+func GetPublishers(ctx *gin.Context) {
+	publishers := handlers.GetPublishers()
+	ctx.JSON(200, gin.H{"publishers": publishers})
 }

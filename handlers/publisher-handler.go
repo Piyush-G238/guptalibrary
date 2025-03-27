@@ -35,3 +35,9 @@ func UpdatePublisher(publisherId int, publisher *models.Publisher) (int, error) 
 	configs.DB.Model(&fetchedPublisher).Update("name", publisher.Name)
 	return fetchedPublisher.ID, nil
 }
+
+func GetPublishers() []models.Publisher {
+	publishers := []models.Publisher{}
+	configs.DB.Preload("Books").Find(&publishers)
+	return publishers
+}
