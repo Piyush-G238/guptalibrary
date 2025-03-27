@@ -1,7 +1,10 @@
 package models
 
+import "time"
+
 type Publisher struct {
-	ID    int    `json:"id" gorm:"primary_key"`
-	Name  string `json:"name"`
-	Books []Book `json:"books" gorm:"foreignKey:PublisherID"`
+	ID        int       `json:"id" gorm:"primary_key"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+	Books     []Book    `json:"books" gorm:"foreignKey:PublisherID"`
 }
