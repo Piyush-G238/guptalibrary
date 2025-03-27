@@ -20,3 +20,10 @@ func CreateGenre(genre *models.Genre) (int, error) {
 	configs.DB.Create(genre)
 	return genre.ID, nil
 }
+
+func GetGenres() ([]models.Genre, error) {
+
+	var genres []models.Genre
+	configs.DB.Preload("Books", []models.Book{}).Find(&genres)
+	return genres, nil
+}

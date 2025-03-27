@@ -9,6 +9,7 @@ import (
 func GroupGenreRoutes(router *gin.RouterGroup) {
 
 	router.POST("/", CreateGenre)
+	router.GET("/", GetGenres)
 }
 
 func CreateGenre(ctx *gin.Context) {
@@ -23,4 +24,15 @@ func CreateGenre(ctx *gin.Context) {
 	}
 
 	ctx.JSON(201, gin.H{"id": id, "message": "genre created successfully"})
+}
+
+func GetGenres(ctx *gin.Context) {
+
+	genres, err := handlers.GetGenres()
+	if err != nil {
+		ctx.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(200, genres)
 }

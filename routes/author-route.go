@@ -11,6 +11,7 @@ import (
 func GroupAuthorRoutes(router *gin.RouterGroup) {
 	router.POST("/", CreateAuthor)
 	router.PATCH("/:id", UpdateAuthor)
+	router.GET("/", GetAuthors)
 }
 
 func CreateAuthor(ctx *gin.Context) {
@@ -43,4 +44,13 @@ func UpdateAuthor(ctx *gin.Context) {
 	}
 
 	ctx.JSON(200, gin.H{"id": generatedId, "message": "Author updated successfully"})
+}
+
+func GetAuthors(ctx *gin.Context) {
+	authors, dbError := handlers.GetAuthors()
+	if dbError != nil {
+		ctx.JSON(400, gin.H{"error": dbError.Error()})
+		return
+	}
+	ctx.JSON(200, authors)
 }

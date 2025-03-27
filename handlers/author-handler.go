@@ -25,3 +25,10 @@ func UpdateAuthor(authorId int, author *models.Author) (int, error) {
 	configs.DB.Model(fetchedAuthor).Update("name", author.Name)
 	return fetchedAuthor.ID, nil
 }
+
+func GetAuthors() ([]models.Author, error) {
+
+	authors := []models.Author{}
+	configs.DB.Preload("Books", []models.Book{}).Find(&authors)
+	return authors, nil
+}
