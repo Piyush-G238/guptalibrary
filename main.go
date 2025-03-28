@@ -28,4 +28,5 @@ func GroupAllRoutes(router *gin.RouterGroup) {
 	routes.GroupGenreRoutes(router.Group("/genres"))
 	routes.GroupRoleRoute(router.Group("/roles"))
 	routes.GroupUserRoutes(router.Group("/users"))
+	routes.GroupTransactionRoutes(router.Group("/transactions"))
 }

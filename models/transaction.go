@@ -7,6 +7,7 @@ type Transaction struct {
 	UserId     int       `json:"user_id"`
 	BookId     int       `json:"book_id"`
 	IssueDate  time.Time `json:"issue_date"`
+	DueDate    time.Time `json:"due_date"`
 	ReturnDate time.Time `json:"return_date"`
 	Status     string    `json:"status"`
 	User       User      `json:"user"`
