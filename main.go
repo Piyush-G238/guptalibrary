@@ -13,6 +13,8 @@ func main() {
 	fmt.Println("Hello, World!")
 
 	configs.InitDB()
+	configs.InitRedis()
+
 	application := gin.Default()
 
 	GroupAllRoutes(application.Group("/api/v1"))
@@ -24,4 +26,6 @@ func GroupAllRoutes(router *gin.RouterGroup) {
 	routes.GroupAuthorRoutes(router.Group("/authors"))
 	routes.GroupBookRoutes(router.Group("/books"))
 	routes.GroupGenreRoutes(router.Group("/genres"))
+	routes.GroupRoleRoute(router.Group("/roles"))
+	routes.GroupUserRoutes(router.Group("/users"))
 }

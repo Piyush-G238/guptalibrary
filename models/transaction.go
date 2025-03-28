@@ -9,6 +9,6 @@ type Transaction struct {
 	IssueDate  time.Time `json:"issue_date"`
 	ReturnDate time.Time `json:"return_date"`
 	Status     string    `json:"status"`
-	User       User      `json:"user" gorm:"foreignkey:ID"`
-	Book       Book      `json:"book" gorm:"foreignkey:ID"`
+	User       User      `json:"user"`
+	Book       Book      `json:"book"`
 }

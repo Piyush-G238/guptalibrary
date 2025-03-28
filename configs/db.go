@@ -5,6 +5,7 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	// "guptalibrary.com/models"
 )
 
 var DB *gorm.DB
@@ -18,12 +19,17 @@ func InitDB() {
 		panic("Failed to connect to database!")
 	}
 
-	// db.AutoMigrate(
-	// 	&models.Author{},
-	// 	&models.Book{},
-	// 	&models.Genre{},
-	// 	&models.Publisher{},
-	// )
+	/*db.AutoMigrate(
+		&models.Author{},
+		&models.Book{},
+		&models.Genre{},
+		&models.Publisher{},
+		&models.Role{},
+		&models.User{},
+		&models.Fine{},
+		&models.Reservation{},
+		&models.Transaction{},
+	)*/
 
 	fmt.Println("Database connected successfully!")
 	DB = db
