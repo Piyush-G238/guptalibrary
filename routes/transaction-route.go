@@ -11,6 +11,7 @@ func GroupTransactionRoutes(router *gin.RouterGroup) {
 
 	router.POST("/admin/issue-book", IssueBookByAdmin)    // for admin, to issue a book on the behalf of user
 	router.PATCH("/admin/return-book", ReturnBookByAdmin) // for admin, to return a book on the behalf of user
+	router.GET("/", GetTransactions)                      // get all transactions
 }
 
 func IssueBookByAdmin(ctx *gin.Context) {
@@ -60,4 +61,15 @@ func ReturnBookByAdmin(ctx *gin.Context) {
 	}
 
 	ctx.JSON(200, gin.H{"transaction_id": txnId, "message": "Book returned successfully"})
+}
+
+func GetTransactions(ctx *gin.Context) {
+
+	transactions, dbError := handlers.GetTransactions()
+	if dbError != nil {
+		ctx.JSON(400, gin.H{"error": dbError.Error()})
+		return
+	}
+
+	ctx.JSON(200, gin.H{"transactions": transactions})
 }

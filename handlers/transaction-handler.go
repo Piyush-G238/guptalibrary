@@ -85,3 +85,9 @@ func ReturnBookByAdmin(transactionId int, returnDate string) (int, error) {
 	return transactionId, nil
 
 }
+
+func GetTransactions() ([]models.Transaction, error) {
+	transactions := []models.Transaction{}
+	configs.DB.Preload("User", &models.User{}).Preload("Book", &models.Book{}).Find(&transactions)
+	return transactions, nil
+}
