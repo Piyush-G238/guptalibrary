@@ -5,13 +5,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"guptalibrary.com/handlers"
+	"guptalibrary.com/middlewares"
 	"guptalibrary.com/models"
 )
 
 func GroupAuthorRoutes(router *gin.RouterGroup) {
-	router.POST("/", CreateAuthor)
-	router.PATCH("/:id", UpdateAuthor)
-	router.GET("/", GetAuthors)
+	router.Use(middlewares.AuthMiddleware()).POST("/", CreateAuthor)
+	router.Use(middlewares.AuthMiddleware()).PATCH("/:id", UpdateAuthor)
+	router.Use(middlewares.AuthMiddleware()).GET("/", GetAuthors)
 }
 
 func CreateAuthor(ctx *gin.Context) {

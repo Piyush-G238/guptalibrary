@@ -5,14 +5,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"guptalibrary.com/handlers"
+	"guptalibrary.com/middlewares"
 	"guptalibrary.com/models"
 )
 
 func GroupPublisherRoutes(router *gin.RouterGroup) {
 
-	router.POST("/", CreatePublisher)
-	router.PATCH("/:id", UpdatePublisher)
-	router.GET("/", GetPublishers)
+	router.Use(middlewares.AuthMiddleware()).POST("/", CreatePublisher)
+	router.Use(middlewares.AuthMiddleware()).PATCH("/:id", UpdatePublisher)
+	router.Use(middlewares.AuthMiddleware()).GET("/", GetPublishers)
 }
 
 func CreatePublisher(ctx *gin.Context) {

@@ -23,3 +23,25 @@ func GenerateToken(username string) (string, error) {
 
 	return token, nil
 }
+
+func ValidateToken(token string) (bool, error) {
+
+	jwtToken, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secret), nil
+	})
+
+	if err != nil {
+		return false, errors.New(err.Error())
+	}
+
+	return jwtToken.Valid, nil
+}
+
+func GetUsernameFromToken(token string) string {
+	jwtToken, _ := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secret), nil
+	})
+
+	claims := jwtToken.Claims.(jwt.MapClaims)
+	return claims["sub"].(string)
+}
