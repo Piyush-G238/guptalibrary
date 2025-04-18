@@ -9,26 +9,26 @@ import (
 	"guptalibrary.com/utils"
 )
 
-func Signup(newUser *models.User) (int, string, error) {
+func Signup(newUser *models.User) (int, error) {
 
 	userExists := &models.User{}
 	configs.DB.Where("username = ?", newUser.Username).First(userExists)
 
 	if userExists.ID != 0 {
-		return 0, "", errors.New("Username already exists")
+		return 0, errors.New("username already exists")
 	}
 	configs.DB.Where("email = ?", newUser.Email).First(userExists)
 	if userExists.ID != 0 {
-		return 0, "", errors.New("Email already exists")
+		return 0, errors.New("email already exists")
 	}
 	configs.DB.Where("phone = ?", newUser.Phone).First(userExists)
 	if userExists.ID != 0 {
-		return 0, "", errors.New("Phone already exists")
+		return 0, errors.New("phone already exists")
 	}
 
 	hashedPassword, hashingError := utils.HashPassword(newUser.Password)
 	if hashingError != nil {
-		return 0, "", errors.New("Error hashing password")
+		return 0, errors.New("error while hashing password")
 	}
 	newUser.Password = hashedPassword
 
@@ -38,11 +38,20 @@ func Signup(newUser *models.User) (int, string, error) {
 	newUser.CreatedAt = configs.DB.NowFunc()
 	configs.DB.Create(newUser)
 
-	token, tokenError := utils.GenerateToken(newUser.Username)
+	verifyToken, tokenError := utils.GenerateVerificationToken()
+	// token, tokenError := utils.GenerateToken(newUser.Username)
 	if tokenError != nil {
-		return 0, "", errors.New("Error generating token")
+		return 0, errors.New("error while generating verification token")
 	}
-	return newUser.ID, token, nil
+
+	userVerification := &models.UserVerification{
+		UserId:            newUser.ID,
+		VerificationToken: verifyToken,
+		ExpirationTime:    time.Now().Add(time.Hour * 24),
+	}
+
+	configs.DB.Create(userVerification)
+	return newUser.ID, nil
 }
 
 func Login(user *models.User) (string, error) {
@@ -51,12 +60,12 @@ func Login(user *models.User) (string, error) {
 	configs.DB.Where("username = ?", user.Username).First(userExists)
 
 	if userExists.ID == 0 {
-		return "", errors.New("User not found")
+		return "", errors.New("user not found")
 	}
 
 	passwordMatch := utils.CheckPasswordHash(user.Password, userExists.Password)
 	if !passwordMatch {
-		return "", errors.New("Invalid password")
+		return "", errors.New("invalid password")
 	}
 
 	newOtp := utils.GenerateOTP()
@@ -72,14 +81,42 @@ func VerifyOtp(username, otp string) (string, error) {
 	}
 
 	if storedOtp != otp {
-		return "", errors.New("Invalid OTP")
+		return "", errors.New("invalid OTP")
 	}
 
 	configs.RedisClient.Del(configs.Context, username)
 
 	token, tokenError := utils.GenerateToken(username)
 	if tokenError != nil {
-		return "", errors.New("Error generating token")
+		return "", errors.New("error generating token")
 	}
 	return token, nil
+}
+
+func VerifyEmail(token string) error {
+
+	verification := &models.UserVerification{}
+	configs.DB.Where("verification_token = ?", token).Find(verification)
+
+	if verification.UserId == 0 {
+		return errors.New("no user is found against this verification token")
+	}
+
+	expiryTime := verification.ExpirationTime
+	if expiryTime.Before(time.Now()) {
+		configs.DB.Delete(verification)
+		return errors.New("verification token is expired, please request for email verification again")
+	} else if verification.VerificationToken != token {
+		return errors.New("wrong verification token, please request for email verification again")
+	}
+
+	updatedUser := &models.User{
+		ID:              verification.UserId,
+		IsEmailVerified: true,
+	}
+	// configs.DB.Model(updatedUser).Where("id = ?", updatedUser.ID).UpdateColumn("is_email_verified = ?", updatedUser.IsEmailVerified)
+	configs.DB.Model(updatedUser).Where("id = ?", updatedUser.ID).UpdateColumn("is_email_verified", updatedUser.IsEmailVerified)
+	configs.DB.Where("user_id = ?", verification.UserId).Delete(verification)
+
+	return nil
 }

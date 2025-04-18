@@ -13,8 +13,8 @@ var Context = context.Background()
 func InitRedis() {
 
 	redisClient := redis.NewClient(&redis.Options{
-		Addr:     "172.29.57.241:6379",
-		Password: "P@$$w0rd##2143",
+		Addr:     "localhost:6379",
+		// Password: "P@$$w0rd##2143",
 		DB:       0,
 	})
 

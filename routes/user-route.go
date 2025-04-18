@@ -10,19 +10,20 @@ func GroupUserRoutes(router *gin.RouterGroup) {
 	router.POST("/signup", Signup)
 	router.POST("/login", Login)
 	router.POST("/verify-otp", VerifyOtp)
+	router.POST("/verify-email", VerifyEmail)
 }
 
 func Signup(ctx *gin.Context) {
 	newUser := &models.User{}
 	ctx.ShouldBindBodyWithJSON(newUser)
 
-	newId, token, dbError := handlers.Signup(newUser)
+	newId, dbError := handlers.Signup(newUser)
 	if dbError != nil {
 		ctx.JSON(400, gin.H{"error": dbError.Error()})
 		return
 	}
 
-	ctx.JSON(201, gin.H{"id": newId, "message": "User created successfully", "access_token": token})
+	ctx.JSON(201, gin.H{"id": newId, "message": "User created successfully and E-mail is sent for verification!"})
 }
 
 func Login(ctx *gin.Context) {
@@ -50,4 +51,17 @@ func VerifyOtp(ctx *gin.Context) {
 	}
 
 	ctx.JSON(200, gin.H{"message": "OTP verified successfully!", "access_token": accessToken})
+}
+
+func VerifyEmail(ctx *gin.Context) {
+
+	verificationToken := ctx.Query("token")
+	handlerError := handlers.VerifyEmail(verificationToken)
+
+	if handlerError != nil {
+		ctx.JSON(400, gin.H{"message": handlerError.Error()})
+		return
+	}
+
+	ctx.JSON(201, gin.H{"message": "user's email is verified successfully!"})
 }
