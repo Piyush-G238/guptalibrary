@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"guptalibrary.com/configs"
@@ -18,12 +19,16 @@ func Signup(newUser *models.User) (int, error) {
 		return 0, errors.New("username already exists")
 	}
 	configs.DB.Where("email = ?", newUser.Email).First(userExists)
+
 	if userExists.ID != 0 {
 		return 0, errors.New("email already exists")
 	}
-	configs.DB.Where("phone = ?", newUser.Phone).First(userExists)
-	if userExists.ID != 0 {
-		return 0, errors.New("phone already exists")
+
+	if strings.Trim(newUser.Phone, " ") != "" {
+		configs.DB.Where("phone = ?", newUser.Phone).First(userExists)
+		if userExists.ID != 0 {
+			return 0, errors.New("phone already exists")
+		}
 	}
 
 	hashedPassword, hashingError := utils.HashPassword(newUser.Password)
@@ -51,6 +56,20 @@ func Signup(newUser *models.User) (int, error) {
 	}
 
 	configs.DB.Create(userVerification)
+	dynamicValues := make(map[string]any)
+	dynamicValues["Username"] = newUser.Username
+	dynamicValues["VerificationLink"] = "http://localhost:8080/api/v1/users/verify-email?token=" + verifyToken
+
+	_, emailError := SendEmail(
+		"verify email address template",
+		"Verify Email Address",
+		dynamicValues,
+		newUser.Email)
+
+	if emailError != nil {
+		return 0, errors.New("Unable to send error: " + emailError.Error())
+	}
+
 	return newUser.ID, nil
 }
 
@@ -63,6 +82,10 @@ func Login(user *models.User) (string, error) {
 		return "", errors.New("user not found")
 	}
 
+	if !userExists.IsEmailVerified {
+		return "", errors.New("email is not verified yet, please verify the email first")
+	}
+
 	passwordMatch := utils.CheckPasswordHash(user.Password, userExists.Password)
 	if !passwordMatch {
 		return "", errors.New("invalid password")
@@ -70,6 +93,21 @@ func Login(user *models.User) (string, error) {
 
 	newOtp := utils.GenerateOTP()
 	configs.RedisClient.Set(configs.Context, user.Username, newOtp, 5*time.Minute)
+
+	dynamicValues := make(map[string]any)
+	dynamicValues["Username"] = userExists.Username
+	dynamicValues["OTP"] = newOtp
+
+	_, emailError := SendEmail(
+		"login otp template",
+		"Verify OTP",
+		dynamicValues,
+		userExists.Email)
+
+	if emailError != nil {
+		return "", errors.New("Unable to send error: " + emailError.Error())
+	}
+
 	return newOtp, nil
 }
 

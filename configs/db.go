@@ -30,6 +30,7 @@ func InitDB() {
 		&models.Reservation{},
 		&models.Transaction{},
 		&models.UserVerification{},
+		&models.NotificationTemplate{},
 	)
 
 	fmt.Println("Database connected successfully!")
