@@ -76,23 +76,23 @@ func Signup(newUser *models.User) (int, error) {
 func Login(user *models.User) (string, error) {
 
 	userExists := &models.User{}
-	configs.DB.Where("username = ?", user.Username).First(userExists)
+	configs.DB.Where("username = ? or email = ?", user.Username, user.Username).First(userExists)
 
 	if userExists.ID == 0 {
-		return "", errors.New("user not found")
+		return "", errors.New("invalid credentials")
 	}
 
 	if !userExists.IsEmailVerified {
-		return "", errors.New("email is not verified yet, please verify the email first")
+		return "", errors.New("email is not verified yet, please verify your email first")
 	}
 
 	passwordMatch := utils.CheckPasswordHash(user.Password, userExists.Password)
 	if !passwordMatch {
-		return "", errors.New("invalid password")
+		return "", errors.New("invalid credentials")
 	}
 
 	newOtp := utils.GenerateOTP()
-	configs.RedisClient.Set(configs.Context, user.Username, newOtp, 5*time.Minute)
+	configs.RedisClient.Set(configs.Context, "otp_"+userExists.Username, newOtp, 5*time.Minute)
 
 	dynamicValues := make(map[string]any)
 	dynamicValues["Username"] = userExists.Username
@@ -108,27 +108,69 @@ func Login(user *models.User) (string, error) {
 		return "", errors.New("Unable to send error: " + emailError.Error())
 	}
 
-	return newOtp, nil
+	return userExists.Username, nil
 }
 
-func VerifyOtp(username, otp string) (string, error) {
+func VerifyLoginOtp(username, otp string) (string, error) {
 
-	storedOtp, err := configs.RedisClient.Get(configs.Context, username).Result()
-	if err != nil {
-		return "", errors.New("OTP expired/OTP not generated for the user")
+	otpError := VerifyOtp(username, otp)
+	if otpError != nil {
+		return "", otpError
 	}
-
-	if storedOtp != otp {
-		return "", errors.New("invalid OTP")
-	}
-
-	configs.RedisClient.Del(configs.Context, username)
 
 	token, tokenError := utils.GenerateToken(username)
 	if tokenError != nil {
 		return "", errors.New("error generating token")
 	}
 	return token, nil
+}
+
+func RequestOtp(username string) (string, error) {
+
+	userExists := &models.User{}
+	configs.DB.Where("username = ? or email = ?", username, username).First(userExists)
+
+	if userExists.ID == 0 {
+		return "", errors.New("username/email not found")
+	}
+
+	if !userExists.IsEmailVerified {
+		return "", errors.New("email is not verified yet, please verify your email first")
+	}
+
+	newOtp := utils.GenerateOTP()
+	configs.RedisClient.Set(configs.Context, "otp_"+userExists.Username, newOtp, 5*time.Minute)
+
+	dynamicValues := make(map[string]any)
+	dynamicValues["Username"] = userExists.Username
+	dynamicValues["OTP"] = newOtp
+
+	_, emailError := SendEmail(
+		"login otp template",
+		"Verify OTP",
+		dynamicValues,
+		userExists.Email)
+
+	if emailError != nil {
+		return "", errors.New("Unable to send error: " + emailError.Error())
+	}
+
+	return userExists.Username, nil
+}
+
+func VerifyOtp(username, otp string) error {
+
+	storedOtp, err := configs.RedisClient.Get(configs.Context, "otp_"+username).Result()
+	if err != nil {
+		return errors.New("OTP expired/OTP not generated for the user")
+	}
+
+	if storedOtp != otp {
+		return errors.New("invalid OTP provided")
+	}
+
+	configs.RedisClient.Del(configs.Context, "otp_"+username)
+	return nil
 }
 
 func VerifyEmail(token string) error {
@@ -156,5 +198,21 @@ func VerifyEmail(token string) error {
 	configs.DB.Model(updatedUser).Where("id = ?", updatedUser.ID).UpdateColumn("is_email_verified", updatedUser.IsEmailVerified)
 	configs.DB.Where("user_id = ?", verification.UserId).Delete(verification)
 
+	return nil
+}
+
+func ResetPassword(username, password string) error {
+
+	userExists := &models.User{}
+	configs.DB.Where("username = ?", username).First(userExists)
+
+	if userExists.ID == 0 {
+		return errors.New("username/email not found")
+	}
+
+	encryptedPassword, _ := utils.HashPassword(password)
+	userExists.Password = encryptedPassword
+
+	configs.DB.Model(userExists).Where("id = ?", userExists.ID).UpdateColumn("password", userExists.Password)
 	return nil
 }

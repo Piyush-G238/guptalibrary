@@ -9,8 +9,11 @@ import (
 func GroupUserRoutes(router *gin.RouterGroup) {
 	router.POST("/signup", Signup)
 	router.POST("/login", Login)
-	router.POST("/verify-otp", VerifyOtp)
-	router.POST("/verify-email", VerifyEmail)
+	router.POST("/request-otp", RequestOtp)
+	router.PATCH("/verify-login-otp", VerifyLoginOtp)
+	router.PATCH("/verify-otp", VerifyOtp)
+	router.PATCH("/verify-email", VerifyEmail)
+	router.PATCH("/reset-password", ResetPassword)
 }
 
 func Signup(ctx *gin.Context) {
@@ -30,13 +33,27 @@ func Login(ctx *gin.Context) {
 	loginDetails := &models.User{}
 	ctx.ShouldBindBodyWithJSON(loginDetails)
 
-	newOtp, dbError := handlers.Login(loginDetails)
+	userName, dbError := handlers.Login(loginDetails)
 	if dbError != nil {
 		ctx.JSON(400, gin.H{"error": dbError.Error()})
 		return
 	}
 
-	ctx.JSON(200, gin.H{"message": "User verified successfully!", "one_time_password": newOtp})
+	ctx.JSON(201, gin.H{"message": "Credentials verified successfully!", "username": userName})
+}
+
+func VerifyLoginOtp(ctx *gin.Context) {
+
+	username := ctx.Query("username")
+	otp := ctx.Query("otp")
+
+	accessToken, dbError := handlers.VerifyLoginOtp(username, otp)
+	if dbError != nil {
+		ctx.JSON(400, gin.H{"error": dbError.Error()})
+		return
+	}
+
+	ctx.JSON(200, gin.H{"message": "OTP verified successfully!", "access_token": accessToken})
 }
 
 func VerifyOtp(ctx *gin.Context) {
@@ -44,13 +61,13 @@ func VerifyOtp(ctx *gin.Context) {
 	username := ctx.Query("username")
 	otp := ctx.Query("otp")
 
-	accessToken, dbError := handlers.VerifyOtp(username, otp)
+	dbError := handlers.VerifyOtp(username, otp)
 	if dbError != nil {
 		ctx.JSON(400, gin.H{"error": dbError.Error()})
 		return
 	}
 
-	ctx.JSON(200, gin.H{"message": "OTP verified successfully!", "access_token": accessToken})
+	ctx.JSON(200, gin.H{"message": "OTP verified successfully!"})
 }
 
 func VerifyEmail(ctx *gin.Context) {
@@ -63,5 +80,31 @@ func VerifyEmail(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(201, gin.H{"message": "user's email is verified successfully!"})
+	ctx.JSON(200, gin.H{"message": "user's email is verified successfully!"})
+}
+
+func RequestOtp(ctx *gin.Context) {
+
+	userName := ctx.Query("username")
+	existingUser, dbError := handlers.RequestOtp(userName)
+	if dbError != nil {
+		ctx.JSON(400, gin.H{"error": dbError.Error()})
+		return
+	}
+
+	ctx.JSON(201, gin.H{"message": "OTP is sent successfully!", "username": existingUser})
+}
+
+func ResetPassword(ctx *gin.Context) {
+
+	userName := ctx.Query("username")
+	password := ctx.Query("password")
+
+	dbError := handlers.ResetPassword(userName, password)
+	if dbError != nil {
+		ctx.JSON(400, gin.H{"error": dbError.Error()})
+		return
+	}
+
+	ctx.JSON(200, gin.H{"message": "password has been resetted successfully!"})
 }
