@@ -24,6 +24,6 @@ func CreateGenre(genre *models.Genre) (int, error) {
 func GetGenres() ([]models.Genre, error) {
 
 	var genres []models.Genre
-	configs.DB.Preload("Books", []models.Book{}).Find(&genres)
+	configs.DB.Find(&genres)
 	return genres, nil
 }

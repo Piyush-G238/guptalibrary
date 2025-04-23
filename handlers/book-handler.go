@@ -54,9 +54,35 @@ func UpdateBook(bookId int, book *models.Book) (int, error) {
 	return fetchedBook.ID, nil
 }
 
-func GetBooks() ([]models.Book, error) {
+func GetBooks(searchValue string, pageNumber, pageSize, authorId, publisherId, genreId int64) ([]models.Book, error) {
 
 	books := []models.Book{}
-	configs.DB.Preload("Author", &models.Author{}).Preload("Publisher", &models.Publisher{}).Preload("Genres", []models.Genre{}).Find(&books)
+
+	txn := configs.DB.
+		Where(
+			`(lower(books.name) like ? or lower(books.isbn) like ?)`,
+			strings.ToLower("%"+searchValue+"%"),
+			strings.ToLower("%"+searchValue+"%"))
+
+	if authorId != 0 {
+		txn.Where("books.author_id = ?", authorId)
+	}
+
+	if publisherId != 0 {
+		txn.Where("books.publisher_id = ?", publisherId)
+	}
+
+	if genreId != 0 {
+		txn.Where("book_genres.genre_id = ?", genreId)
+	}
+
+	txn.
+		Joins("JOIN book_genres on book_genres.book_id = books.id").
+		Limit(int(pageSize)).
+		Offset(int(pageNumber-1) * int(pageSize)).
+		Group("books.id").
+		Preload("Author").
+		Find(&books)
+
 	return books, nil
 }

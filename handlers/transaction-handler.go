@@ -16,11 +16,11 @@ func IssueBookByAdmin(userId, bookId int, issueDate, dueDate string) (int, error
 	configs.DB.Where("id = ?", bookId).First(&fetchedBook)
 
 	if fetchedUser.ID == 0 {
-		return 0, errors.New("User not found")
+		return 0, errors.New("user not found")
 	}
 
 	if fetchedBook.ID == 0 {
-		return 0, errors.New("Book not found")
+		return 0, errors.New("book not found")
 	}
 
 	if fetchedBook.AvailableCopies == 0 {
@@ -32,7 +32,7 @@ func IssueBookByAdmin(userId, bookId int, issueDate, dueDate string) (int, error
 		newReservation.ReservationDate = time.Now()
 		configs.DB.Create(&newReservation)
 
-		return 0, errors.New("Book is not available to issue")
+		return 0, errors.New("book is not available to issue")
 	}
 
 	transaction := models.Transaction{}
@@ -41,13 +41,13 @@ func IssueBookByAdmin(userId, bookId int, issueDate, dueDate string) (int, error
 
 	issueDateParsed, err := time.Parse("2006-01-02", issueDate)
 	if err != nil {
-		return 0, errors.New("Invalid issue date")
+		return 0, errors.New("invalid issue date")
 	}
 	transaction.IssueDate = issueDateParsed
 
 	dueDateParsed, err := time.Parse("2006-01-02", dueDate)
 	if err != nil {
-		return 0, errors.New("Invalid return date")
+		return 0, errors.New("invalid return date")
 	}
 	transaction.DueDate = dueDateParsed
 	transaction.Status = "borrowed"
@@ -63,16 +63,16 @@ func ReturnBookByAdmin(transactionId int, returnDate string) (int, error) {
 	configs.DB.Where("id = ?", transactionId).First(&fetchedTransaction)
 
 	if fetchedTransaction.ID == 0 {
-		return 0, errors.New("Transaction not found")
+		return 0, errors.New("transaction not found")
 	}
 
 	if fetchedTransaction.Status == "returned" {
-		return 0, errors.New("Book is already returned")
+		return 0, errors.New("book is already returned")
 	}
 
 	returnDateParsed, err := time.Parse("2006-01-02", returnDate)
 	if err != nil {
-		return 0, errors.New("Invalid return date")
+		return 0, errors.New("invalid return date")
 	}
 
 	configs.DB.Model(&fetchedTransaction).Update("return_date", returnDateParsed)

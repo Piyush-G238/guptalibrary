@@ -38,6 +38,6 @@ func UpdatePublisher(publisherId int, publisher *models.Publisher) (int, error) 
 
 func GetPublishers() []models.Publisher {
 	publishers := []models.Publisher{}
-	configs.DB.Preload("Books").Find(&publishers)
+	configs.DB.Find(&publishers)
 	return publishers
 }

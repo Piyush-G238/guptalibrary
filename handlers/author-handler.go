@@ -29,6 +29,6 @@ func UpdateAuthor(authorId int, author *models.Author) (int, error) {
 func GetAuthors() ([]models.Author, error) {
 
 	authors := []models.Author{}
-	configs.DB.Preload("Books", []models.Book{}).Find(&authors)
+	configs.DB.Find(&authors)
 	return authors, nil
 }
