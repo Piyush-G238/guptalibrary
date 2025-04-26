@@ -7,7 +7,7 @@ import (
 	"guptalibrary.com/utils"
 )
 
-func AuthMiddleware() gin.HandlerFunc {
+func AuthenticationMiddleware() gin.HandlerFunc {
 
 	return func(ctx *gin.Context) {
 		var authorization string = ctx.GetHeader("Authorization")

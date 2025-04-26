@@ -3,12 +3,16 @@ package routes
 import (
 	"github.com/gin-gonic/gin"
 	"guptalibrary.com/handlers"
+	"guptalibrary.com/middlewares"
 	"guptalibrary.com/models"
 )
 
 func GroupRoleRoute(router *gin.RouterGroup) {
 
-	router.POST("/", CreateRole)
+	router.
+		Use(middlewares.AuthenticationMiddleware()).
+		Use(middlewares.AdminMiddleware()).
+		POST("/", CreateRole)
 }
 
 func CreateRole(ctx *gin.Context) {

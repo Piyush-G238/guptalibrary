@@ -36,8 +36,10 @@ func UpdatePublisher(publisherId int, publisher *models.Publisher) (int, error) 
 	return fetchedPublisher.ID, nil
 }
 
-func GetPublishers() []models.Publisher {
+func GetPublishers(searchValue string) []models.Publisher {
 	publishers := []models.Publisher{}
-	configs.DB.Find(&publishers)
+	configs.DB.
+		Where("lower(name) like ? ", "%"+strings.ToLower(searchValue)+"%").
+		Find(&publishers)
 	return publishers
 }

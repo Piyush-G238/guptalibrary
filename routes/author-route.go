@@ -10,9 +10,17 @@ import (
 )
 
 func GroupAuthorRoutes(router *gin.RouterGroup) {
-	router.Use(middlewares.AuthMiddleware()).POST("/", CreateAuthor)
-	router.Use(middlewares.AuthMiddleware()).PATCH("/:id", UpdateAuthor)
-	router.Use(middlewares.AuthMiddleware()).GET("/", GetAuthors)
+	router.
+		Use(middlewares.AuthenticationMiddleware()).
+		Use(middlewares.AdminMiddleware()).
+		POST("/", CreateAuthor)
+	router.
+		Use(middlewares.AuthenticationMiddleware()).
+		Use(middlewares.AdminMiddleware()).
+		PATCH("/:id", UpdateAuthor)
+	router.
+		Use(middlewares.AuthenticationMiddleware()).
+		GET("/", GetAuthors)
 }
 
 func CreateAuthor(ctx *gin.Context) {
@@ -48,7 +56,9 @@ func UpdateAuthor(ctx *gin.Context) {
 }
 
 func GetAuthors(ctx *gin.Context) {
-	authors, dbError := handlers.GetAuthors()
+	searchValue := ctx.Query("search")
+
+	authors, dbError := handlers.GetAuthors(searchValue)
 	if dbError != nil {
 		ctx.JSON(400, gin.H{"error": dbError.Error()})
 		return

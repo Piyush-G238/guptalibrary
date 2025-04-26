@@ -11,9 +11,22 @@ import (
 
 func GroupBookRoutes(router *gin.RouterGroup) {
 
-	router.Use(middlewares.AuthMiddleware()).POST("/", CreateBook)
-	router.Use(middlewares.AuthMiddleware()).PATCH("/:id", UpdateBook)
-	router.Use(middlewares.AuthMiddleware()).GET("/", GetBooks)
+	router.
+		Use(middlewares.AuthenticationMiddleware()).
+		Use(middlewares.AdminMiddleware()).
+		POST("/", CreateBook)
+	router.
+		Use(middlewares.AuthenticationMiddleware()).
+		Use(middlewares.AdminMiddleware()).
+		PATCH("/:id", UpdateBook)
+	router.
+		Use(middlewares.AuthenticationMiddleware()).
+		Use(middlewares.AdminMiddleware()).
+		GET("/", GetBooks)
+	router.
+		Use(middlewares.AuthenticationMiddleware()).
+		Use(middlewares.AdminMiddleware()).
+		GET("/:id", GetBookById)
 }
 
 func CreateBook(ctx *gin.Context) {
@@ -104,4 +117,22 @@ func GetBooks(ctx *gin.Context) {
 	}
 
 	ctx.JSON(200, gin.H{"books": books})
+}
+
+func GetBookById(ctx *gin.Context) {
+
+	str1 := ctx.Param("id")
+	bookId, parseError := strconv.ParseInt(str1, 10, 64)
+	if parseError != nil {
+		ctx.JSON(400, gin.H{"message": "unable to parse \"bookId\" param"})
+		return
+	}
+
+	fetchedBook, dbError := handlers.GetBookById(bookId)
+	if dbError != nil {
+		ctx.JSON(400, gin.H{"error": dbError.Error()})
+		return
+	}
+
+	ctx.JSON(200, gin.H{"book": fetchedBook})
 }

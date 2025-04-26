@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
+	"time"
 
 	"guptalibrary.com/configs"
 	"guptalibrary.com/models"
@@ -51,6 +54,8 @@ func UpdateBook(bookId int, book *models.Book) (int, error) {
 
 	book.ID = fetchedBook.ID
 	configs.DB.Save(book)
+
+	configs.RedisClient.Del(configs.Context, fmt.Sprintf("Book_%d", bookId))
 	return fetchedBook.ID, nil
 }
 
@@ -85,4 +90,47 @@ func GetBooks(searchValue string, pageNumber, pageSize, authorId, publisherId, g
 		Find(&books)
 
 	return books, nil
+}
+
+func GetBookById(bookId int64) (models.Book, error) {
+
+	key := fmt.Sprintf("book_%d", bookId)
+
+	fetchedBook := &models.Book{}
+
+	resultData, _ := configs.RedisClient.Get(configs.Context, key).Result()
+	if resultData != "" {
+		unMarshalError := json.Unmarshal([]byte(resultData), fetchedBook)
+		if unMarshalError != nil {
+			return *fetchedBook, errors.New("error: " + unMarshalError.Error())
+		}
+
+		if fetchedBook.ID != 0 {
+			return *fetchedBook, nil
+		}
+	}
+
+	configs.DB.
+		Where("id = ?", bookId).
+		Preload("Author").
+		Preload("Publisher").
+		Preload("Genres").
+		Find(fetchedBook)
+
+	if fetchedBook.ID == 0 {
+		return *fetchedBook, errors.New("unable to found book with the provided id")
+	}
+
+	jsonData, jsonError := json.Marshal(fetchedBook)
+	if jsonError != nil {
+		return *fetchedBook, errors.New("error: " + jsonError.Error())
+	}
+
+	configs.RedisClient.Set(
+		configs.Context,
+		key,
+		jsonData,
+		5*time.Minute)
+
+	return *fetchedBook, nil
 }

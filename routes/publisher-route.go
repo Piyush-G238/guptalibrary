@@ -11,9 +11,17 @@ import (
 
 func GroupPublisherRoutes(router *gin.RouterGroup) {
 
-	router.Use(middlewares.AuthMiddleware()).POST("/", CreatePublisher)
-	router.Use(middlewares.AuthMiddleware()).PATCH("/:id", UpdatePublisher)
-	router.Use(middlewares.AuthMiddleware()).GET("/", GetPublishers)
+	router.
+		Use(middlewares.AuthenticationMiddleware()).
+		Use(middlewares.AdminMiddleware()).
+		POST("/", CreatePublisher)
+	router.
+		Use(middlewares.AuthenticationMiddleware()).
+		Use(middlewares.AdminMiddleware()).
+		PATCH("/:id", UpdatePublisher)
+	router.
+		Use(middlewares.AuthenticationMiddleware()).
+		GET("/", GetPublishers)
 }
 
 func CreatePublisher(ctx *gin.Context) {
@@ -52,6 +60,8 @@ func UpdatePublisher(ctx *gin.Context) {
 }
 
 func GetPublishers(ctx *gin.Context) {
-	publishers := handlers.GetPublishers()
+	searchValue := ctx.Query("search")
+
+	publishers := handlers.GetPublishers(searchValue)
 	ctx.JSON(200, gin.H{"publishers": publishers})
 }

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"strings"
 
 	"guptalibrary.com/configs"
 	"guptalibrary.com/models"
@@ -26,9 +27,11 @@ func UpdateAuthor(authorId int, author *models.Author) (int, error) {
 	return fetchedAuthor.ID, nil
 }
 
-func GetAuthors() ([]models.Author, error) {
+func GetAuthors(searchValue string) ([]models.Author, error) {
 
 	authors := []models.Author{}
-	configs.DB.Find(&authors)
+	configs.DB.
+		Where("lower(name) like ?", "%"+strings.ToLower(searchValue)+"%").
+		Find(&authors)
 	return authors, nil
 }
