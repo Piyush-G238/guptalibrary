@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"strconv"
 	"time"
 
 	"guptalibrary.com/configs"
@@ -107,6 +108,52 @@ func ReturnBookByAdmin(transactionId int) (int, error) {
 	configs.DB.Model(&fetchedTransaction).Update("return_date", time.Now())
 	configs.DB.Model(&fetchedTransaction).Update("status", "returned")
 
+	// check for late return, if yes impose fine
+	dueDate := fetchedTransaction.DueDate
+	returnedDate := fetchedTransaction.ReturnDate
+
+	graceSetting := &models.Setting{}
+	configs.DB.Where("key = ?", "GRACE_PERIOD").Find(graceSetting)
+
+	gracePeriod, _ := strconv.ParseInt(graceSetting.Value, 10, 64)
+
+	calculatedDate := dueDate.AddDate(0, 0, int(gracePeriod))
+	if returnedDate.After(calculatedDate) {
+
+		diff := returnedDate.Sub(calculatedDate)
+		days := int(diff.Hours()) / 24
+
+		fineSetting := &models.Setting{}
+		configs.DB.Where("key = ?", "FINE_PER_DAY").Find(fineSetting)
+
+		fineRate, _ := strconv.ParseInt(fineSetting.Value, 10, 64)
+		fineAmount := int(fineRate) * days
+
+		fine := &models.Fine{}
+		fine.Amount = float64(fineAmount)
+		fine.UserId = fetchedTransaction.User.ID
+		fine.TransactionId = fetchedTransaction.ID
+		fine.ImposedDate = time.Now()
+		fine.Paid = false
+
+		configs.DB.Create(fine)
+
+		dynamicValues := make(map[string]any)
+		dynamicValues["Username"] = fetchedTransaction.User.Username
+		dynamicValues["BookName"] = fetchedTransaction.Book.Name
+		dynamicValues["DueDate"] = fetchedTransaction.DueDate.Format("2006-01-01")
+		dynamicValues["ReturnDate"] = fetchedTransaction.ReturnDate.Format("2006-01-01")
+		dynamicValues["FineAmount"] = fineAmount
+
+		_, emailError := SendEmail("fine imposed template", "Library fine notice",
+			dynamicValues, fetchedTransaction.User.Email)
+
+		if emailError != nil {
+			configs.DB.Rollback()
+			return 0, errors.New("Unable to send email, error: " + emailError.Error())
+		}
+	}
+
 	fetchedBook := models.Book{}
 	configs.DB.Where("id = ?", fetchedTransaction.BookId).First(&fetchedBook)
 	configs.DB.Model(&fetchedBook).Update("available_copies", fetchedBook.AvailableCopies+1)
@@ -140,8 +187,8 @@ func ReturnBookByAdmin(transactionId int) (int, error) {
 	dynamicValues["Username"] = fetchedTransaction.User.Username
 	dynamicValues["BookName"] = fetchedBook.Name
 	dynamicValues["IsbnNumber"] = fetchedBook.Isbn
-	dynamicValues["IssueDate"] = fetchedTransaction.IssueDate.Format("2006-01-01")
-	dynamicValues["ReturnDate"] = fetchedTransaction.ReturnDate.Format("2006-01-01")
+	dynamicValues["IssueDate"] = fetchedTransaction.IssueDate.Format("2006-01-27")
+	dynamicValues["ReturnDate"] = fetchedTransaction.ReturnDate.Format("2006-01-27")
 
 	_, emailError := SendEmail("book returned template", "Book Returned successfully",
 		dynamicValues, fetchedTransaction.User.Email)
