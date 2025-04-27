@@ -32,6 +32,21 @@ func IssueBookByAdmin(userId, bookId int, issueDate, dueDate string) (int, error
 		newReservation.ReservationDate = time.Now()
 		configs.DB.Create(&newReservation)
 
+		dynamicValues := make(map[string]any)
+		dynamicValues["Username"] = fetchedUser.Username
+		dynamicValues["BookName"] = fetchedBook.Name
+		dynamicValues["IsbnNumber"] = fetchedBook.Isbn
+
+		reservationDate := newReservation.ReservationDate.Format("2006-01-02")
+		dynamicValues["ReservationDate"] = reservationDate
+
+		_, emailError := SendEmail("reservation confirmed template", "Reservation confirmed",
+			dynamicValues, fetchedUser.Email)
+
+		if emailError != nil {
+			return 0, errors.New("Unable to send error: " + emailError.Error())
+		}
+
 		return 0, errors.New("book is not available to issue")
 	}
 
@@ -55,12 +70,31 @@ func IssueBookByAdmin(userId, bookId int, issueDate, dueDate string) (int, error
 
 	configs.DB.Model(&fetchedBook).Update("available_copies", fetchedBook.AvailableCopies-1)
 	configs.DB.Create(&transaction)
+
+	dynamicValues := make(map[string]any)
+	dynamicValues["Username"] = fetchedUser.Username
+	dynamicValues["BookName"] = fetchedBook.Name
+	dynamicValues["IsbnNumber"] = fetchedBook.Isbn
+	dynamicValues["IssueDate"] = issueDate
+	dynamicValues["DueDate"] = dueDate
+
+	_, emailError := SendEmail("issued book template", "Issued book successfully",
+		dynamicValues, fetchedUser.Email)
+
+	if emailError != nil {
+		configs.DB.Rollback()
+		return 0, errors.New("Unable to send email, error: " + emailError.Error())
+	}
 	return transaction.ID, nil
 }
 
-func ReturnBookByAdmin(transactionId int, returnDate string) (int, error) {
+func ReturnBookByAdmin(transactionId int) (int, error) {
 	fetchedTransaction := models.Transaction{}
-	configs.DB.Where("id = ?", transactionId).First(&fetchedTransaction)
+	configs.DB.
+		Where("id = ?", transactionId).
+		Preload("User").
+		Preload("Book").
+		First(&fetchedTransaction)
 
 	if fetchedTransaction.ID == 0 {
 		return 0, errors.New("transaction not found")
@@ -70,24 +104,109 @@ func ReturnBookByAdmin(transactionId int, returnDate string) (int, error) {
 		return 0, errors.New("book is already returned")
 	}
 
-	returnDateParsed, err := time.Parse("2006-01-02", returnDate)
-	if err != nil {
-		return 0, errors.New("invalid return date")
-	}
-
-	configs.DB.Model(&fetchedTransaction).Update("return_date", returnDateParsed)
+	configs.DB.Model(&fetchedTransaction).Update("return_date", time.Now())
 	configs.DB.Model(&fetchedTransaction).Update("status", "returned")
 
 	fetchedBook := models.Book{}
 	configs.DB.Where("id = ?", fetchedTransaction.BookId).First(&fetchedBook)
 	configs.DB.Model(&fetchedBook).Update("available_copies", fetchedBook.AvailableCopies+1)
 
+	// notify user for book availability
+	latestReservation := &models.Reservation{}
+	configs.DB.
+		Where("book_id = ? and status = ?", fetchedTransaction.BookId, "pending").
+		Order("reservation_date desc").
+		Preload("User").
+		Find(latestReservation)
+
+	if latestReservation.ID != 0 {
+		latestReservation.Status = "notified"
+		configs.DB.Save(latestReservation)
+
+		dynamicValues := make(map[string]any)
+		dynamicValues["Username"] = latestReservation.User.Username
+		dynamicValues["BookName"] = fetchedBook.Name
+
+		_, emailError := SendEmail("book available notify template", "Book Available to Issue",
+			dynamicValues, fetchedTransaction.User.Email)
+
+		if emailError != nil {
+			configs.DB.Rollback()
+			return 0, errors.New("Unable to send email, error: " + emailError.Error())
+		}
+	}
+
+	dynamicValues := make(map[string]any)
+	dynamicValues["Username"] = fetchedTransaction.User.Username
+	dynamicValues["BookName"] = fetchedBook.Name
+	dynamicValues["IsbnNumber"] = fetchedBook.Isbn
+	dynamicValues["IssueDate"] = fetchedTransaction.IssueDate.Format("2006-01-01")
+	dynamicValues["ReturnDate"] = fetchedTransaction.ReturnDate.Format("2006-01-01")
+
+	_, emailError := SendEmail("book returned template", "Book Returned successfully",
+		dynamicValues, fetchedTransaction.User.Email)
+
+	if emailError != nil {
+		configs.DB.Rollback()
+		return 0, errors.New("Unable to send email, error: " + emailError.Error())
+	}
+
 	return transactionId, nil
 
 }
 
-func GetTransactions() ([]models.Transaction, error) {
-	transactions := []models.Transaction{}
-	configs.DB.Preload("User", &models.User{}).Preload("Book", &models.Book{}).Find(&transactions)
-	return transactions, nil
+func CancelReservation(reservationId int) (int, error) {
+
+	fetchedReservation := &models.Reservation{}
+	configs.DB.
+		Where("id = ?", reservationId).
+		First(fetchedReservation)
+
+	if fetchedReservation.ID == 0 {
+		return 0, errors.New("reservation not found with provided ID")
+	}
+
+	if fetchedReservation.Status == "cancelled" {
+		return 0, errors.New("this reservation is already cancelled")
+	}
+
+	fetchedReservation.Status = "cancelled"
+	configs.DB.Save(fetchedReservation)
+	return reservationId, nil
+}
+
+func NotifyReservation(reservationId int) (int, error) {
+
+	fetchedReservation := &models.Reservation{}
+	configs.DB.
+		Where("id = ?", reservationId).
+		Preload("User").
+		Preload("Book").
+		First(fetchedReservation)
+
+	if fetchedReservation.ID == 0 {
+		return 0, errors.New("reservation not found with provided ID")
+	}
+
+	if fetchedReservation.Status == "cancelled" {
+		return 0, errors.New("this reservation is already cancelled")
+	} else if fetchedReservation.Status == "notified" {
+		return 0, errors.New("notification is already sent for this reservation")
+	}
+
+	fetchedReservation.Status = "notified"
+	configs.DB.Save(fetchedReservation)
+
+	dynamicValues := make(map[string]any)
+	dynamicValues["Username"] = fetchedReservation.User.Username
+	dynamicValues["BookName"] = fetchedReservation.Book.Name
+
+	_, emailError := SendEmail("book available notify template", "Book Available to Issue",
+		dynamicValues, fetchedReservation.User.Email)
+
+	if emailError != nil {
+		configs.DB.Rollback()
+		return 0, errors.New("Unable to send email, error: " + emailError.Error())
+	}
+	return reservationId, nil
 }

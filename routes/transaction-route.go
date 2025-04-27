@@ -5,13 +5,27 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"guptalibrary.com/handlers"
+	"guptalibrary.com/middlewares"
 )
 
 func GroupTransactionRoutes(router *gin.RouterGroup) {
 
-	router.POST("/admin/issue-book", IssueBookByAdmin)    // for admin, to issue a book on the behalf of user
-	router.PATCH("/admin/return-book", ReturnBookByAdmin) // for admin, to return a book on the behalf of user
-	router.GET("/", GetTransactions)                      // get all transactions
+	router.
+		Use(middlewares.AuthenticationMiddleware()).
+		Use(middlewares.AdminMiddleware()).
+		POST("/admin/issue-book", IssueBookByAdmin)
+	router.
+		Use(middlewares.AuthenticationMiddleware()).
+		Use(middlewares.AdminMiddleware()).
+		PATCH("/admin/return-book", ReturnBookByAdmin)
+	router.
+		Use(middlewares.AuthenticationMiddleware()).
+		Use(middlewares.AdminMiddleware()).
+		PATCH("/admin/cancel-reservation/:id", CancelReservation)
+	router.
+		Use(middlewares.AuthenticationMiddleware()).
+		Use(middlewares.AdminMiddleware()).
+		PATCH("/admin/notify-reservation/:id", NotifyReservation)
 }
 
 func IssueBookByAdmin(ctx *gin.Context) {
@@ -45,7 +59,6 @@ func IssueBookByAdmin(ctx *gin.Context) {
 func ReturnBookByAdmin(ctx *gin.Context) {
 
 	transactionIdParam := ctx.Query("transaction_id")
-	returnDate := ctx.Query("return_date")
 
 	transactionId, parsedErr := strconv.ParseInt(transactionIdParam, 10, 64)
 	if parsedErr != nil {
@@ -53,7 +66,7 @@ func ReturnBookByAdmin(ctx *gin.Context) {
 		return
 	}
 
-	txnId, dbError := handlers.ReturnBookByAdmin(int(transactionId), returnDate)
+	txnId, dbError := handlers.ReturnBookByAdmin(int(transactionId))
 
 	if dbError != nil {
 		ctx.JSON(400, gin.H{"error": dbError.Error()})
@@ -63,13 +76,38 @@ func ReturnBookByAdmin(ctx *gin.Context) {
 	ctx.JSON(200, gin.H{"transaction_id": txnId, "message": "Book returned successfully"})
 }
 
-func GetTransactions(ctx *gin.Context) {
+func CancelReservation(ctx *gin.Context) {
 
-	transactions, dbError := handlers.GetTransactions()
+	str1 := ctx.Param("id")
+	reservationId, parseError := strconv.ParseInt(str1, 10, 64)
+
+	if parseError != nil {
+		ctx.JSON(400, gin.H{"error": parseError.Error()})
+	}
+
+	_, dbError := handlers.CancelReservation(int(reservationId))
 	if dbError != nil {
 		ctx.JSON(400, gin.H{"error": dbError.Error()})
 		return
 	}
 
-	ctx.JSON(200, gin.H{"transactions": transactions})
+	ctx.JSON(200, gin.H{"message": "reservation has been cancelled successfully"})
+}
+
+func NotifyReservation(ctx *gin.Context) {
+
+	str1 := ctx.Param("id")
+	reservationId, parseError := strconv.ParseInt(str1, 10, 64)
+
+	if parseError != nil {
+		ctx.JSON(400, gin.H{"error": parseError.Error()})
+	}
+
+	_, dbError := handlers.NotifyReservation(int(reservationId))
+	if dbError != nil {
+		ctx.JSON(400, gin.H{"error": dbError.Error()})
+		return
+	}
+
+	ctx.JSON(200, gin.H{"message": "Notification has been sent successfully for this reservation"})
 }
